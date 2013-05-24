@@ -56,14 +56,29 @@ adaptIntegrateBallSplit(f, n, xstar, width = 0, lowerLimit = rep(0, n - 1),
 }
 }
 \details{Approximate the integral of f(x) over (part of) the sphere or ball in n-space.
+The approach is simplistic: reparameterize the
+region in polar coordinates.  For the sphere, this makes the region of integration a hyper-rectangle
+in dimension (n-1) in the angle space (here the radius is fixed: R=1).  For the ball, the polar representation in terms
+of angles and radius gives an region of integration that is an n dimensional hyper-rectangle.
+
 The region of integration can be a subset of the sphere/ball by specifying a
-patch/sector in polar coordinates.
+patch/sector in polar coordinates.  
+To integrate over a subregion, bounds for the polar integration have be specified.  For example,
+in two dimensions, you can integrate over the top half of the circle by specifying lowerLimit=0.0
+and upperLimit=pi to adaptIntegrateSphere.  Likewise for the ball, to integrate over the part of the annulus
+ with inner radius .2 and outer radius .7 that is in the first quadrant, specify
+lowerLimit=0.0, upperLimit=pi/2, R=c(.2,.7).
 }
-\value{A list containing several fields.  There is always a field
+\value{For adaptIntegrateSphere and adaptIntegrateBall, the function returns a
+ list containing several fields.  There is always a field
    \item{value}{Giving the approximate value of the integral.}
 The other fields depend on the dimension: when n=2, the other fields are
 what is returned by the function integrate( ) in base \R;
 when n > 2, the other fields are the fields returned by function adaptIntegrate( ) in package cubature.
+
+For adaptIntegrateSphereSplit and adaptIntegrateBallSplit, a single value is returned.  (This is 
+because these functions make multiple calls to the adaptive integration routine and the 
+results of each call are not saved.
 }
 
 %% ~Make other sections like Warning with \section{Warning }{....} ~
@@ -80,7 +95,8 @@ adaptIntegrateBall( f1, n )
 adaptIntegrateBallSplit( f1, n, xstar=matrix(c(1,1,1),nrow=3) )
 
 # test of adaptive integration with deliberate splitting
-# function f3 has a sharp spike in the direction (1,2)
+# function f3 has a sharp spike in the direction (1,2),
+# elsewhere it has value 1
 f3 <- function( x ) {
   x0 <- c(1.0,2.0)/sqrt(5.0)
   dist <- sqrt(sum( (x-x0)^2) )
@@ -88,16 +104,20 @@ f3 <- function( x ) {
   y <- 1 + max(y,0)
   return(y)  }
 
-# no splitting
+# no splitting: this straightforward attempt at integration misses
+# the spike and sees the integrand as =1 everywhere, so returns the arclengh 2*pi
 n <- 2
-adaptIntegrateSphere( f3, n )  # misses the spike
+adaptIntegrateSphere( f3, n ) 
 
-# deliberate splitting at specified points, but default width=0 misses spike
+# deliberate splitting at specified points, but still misses spike
+# default width=0 splits the region of integration from [0,2*pi] to [0,a] U [a,2*pi],
+# where tan(a)=2/1.
 xstar <- matrix( c(1.0,2.0,-1.0,1.0), nrow=2 )
-adaptIntegrateSphereSplit( f3, n, xstar=xstar ) 
+adaptIntegrateSphereSplit( f3, n, xstar=xstar )
 
 # deliberate splitting around specified points, 'smart' choice of width gets the spike
-adaptIntegrateSphereSplit( f3, n, xstar=xstar, width=c(0.01,0.01) ) 
+# Here the region of integration is split into [0,a-.01] U [a-.01,a+.01] U [a+.01,2*pi]
+adaptIntegrateSphereSplit( f3, n, xstar=xstar, width=c(0.01,0.01) )
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

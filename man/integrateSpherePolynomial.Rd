@@ -49,9 +49,14 @@ by G. Folland (2001), MAA Monthly 108, pg. 446-448.
 \examples{
 n <- 3
 # specify the polynomial p(x) = 1.0 * x[1]^2 * x[2]^0 * x[3]^0 + 7.0 * x[1]^0 * x[2]^3 * x[3]
-p <- list(coef=c(1.0,7.0),k=matrix( c(2L,0L,0L,0L,3L,0L), nrow=2) )
+p <- list(coef=c(1.0,7.0),k=matrix( c(2L,0L,0L,0L,3L,0L), byrow=TRUE, nrow=2) )
 integrateSpherePolynomial( p )
 integrateBallPolynomial( p )
+
+# compare to adaptive integration
+f4 <- function( x ) { return( x[1]^2 + 7*x[2]^2*x[3] ) }
+adaptIntegrateSphere( f4, n )$value
+adaptIntegrateBall( f4, n )$value
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.

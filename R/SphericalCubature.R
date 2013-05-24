@@ -270,7 +270,7 @@ repeat {
     up[i] <- partition$phi[[i]][j[i]+1]
   }
   #cat("j=",j,"    ",low,"   ",up,"\n")
-  b <- adaptIntegrateSphere( f, n, low,up, tol, ... )
+  b <- adaptIntegrateBall( f, n, low,up, R=R, tol, ... )
   value <- value + b$value
   j <- nextMultiIndex(j, size)
   if (j[1] < 0 ) { break }

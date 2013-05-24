@@ -1,10 +1,10 @@
-70f877bab30da9ab3865cb286c6e4d02 *DESCRIPTION
+4ceb1d2f3f6d7745f6155a4400e77d38 *DESCRIPTION
 df390c53434517b304ac5db487184641 *NAMESPACE
-77d5bb57a11ca05a21296a781c9e0838 *R/SphericalCubature.R
-76fd14f087ab22c37bc6d93cd082dc9b *man/SphericalCubature-package.Rd
+158f4ed888ed5bfe25765ddb1afdaea6 *R/SphericalCubature.R
+cc1d3d20ebac684fc22abfabce4f450a *man/SphericalCubature-package.Rd
 75c931dd5676193ce0d40d0baeba445c *man/SphericalMisc.Rd
-a5b1b5acbcfbbb1009077807831b1bc7 *man/adaptIntegrateSphere.Rd
-a43a2bc732c122dfae066a3ba6009ea3 *man/integrateSpherePolynomial.Rd
+034469fe78111a216618f0dc064d468e *man/adaptIntegrateSphere.Rd
+9a92ed9f78c32b4c3910278bdf13349f *man/integrateSpherePolynomial.Rd
 71f712ddde0d9c26832201ee20fd4feb *man/integrateSphereStroud11.Rd
 164dcfb340c770be16ce033bc2e9b94c *man/rect2polar.Rd
 4281f163be60bb66445bc15ae34d33b0 *man/sphereArea.Rd
