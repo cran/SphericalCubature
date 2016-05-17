@@ -8,13 +8,19 @@
 # Function integrateSphereStroud11 uses Stroud 11 degree rule
 #     to integrate over the unit sphere. It is faster but only
 #     reliable for smooth functions.
-# Functions adaptIntegrateSphere and adaptIntegrateBall use
+# Functions adaptIntegrateSpherePolar and adaptIntegrateBallPolar use
 #     adaptive integration using the multivariate polar representation
 #     and the R package cubature, which performs multivariate adaptive
 #     integration over that rectangular region.  Both functions have
-#     extensions, named adaptIntegrateSphereSplit and adaptIntegrateBallSplit,
+#     extensions, named adaptIntegrateSpherePolarSplit and adaptIntegrateBallPolarSplit,
 #     which allow you to manually split the region of integration to
 #     capture spikes, etc. in the integrand.
+# Function adaptIntegrateSphereTri3d works in 3-dimensions, approximating
+#     an integral over a list of spherical triangles (instead of using
+#     polar coordinates).
+# Function adaptIntegrateSphereTri works in n-dimensions, n >= 2 approximating
+#     an integral over a list of hyperspherical triangles (instead of using
+#     polar coordinates).
 # Utility functions:
 #     rect2polar and polar2rect convert to/from polar coordinates in
 #         n-dimensions
@@ -47,7 +53,7 @@ integrateSpherePolynomial <- function( p, valueOnly=TRUE ) {
 #    p$k[1:m,1:n] matrix of integers
 #    m and n a given implicitly in the sizes of these arrays
 # output - a list with two fields:
-#    $value - a double containing the value of the integral
+#    $integral - a double containing the value of the integral
 #    $term - a vector of length m of values used in the computation
 #          and which are used by function IntegratePolynomialBall( ... )
 #
@@ -70,9 +76,9 @@ for (i in 1:m) {
     term[i] <- 2*p$coef[i]*prod(gamma(beta))/gamma(sum(beta))
   }
 }
-value <- sum(term)
-if (valueOnly) return(value)
-else return( list(value=value,term=term) )}
+integral <- sum(term)
+if (valueOnly) return(integral)
+else return( list(integral=integral,term=term) )}
 ########################################################################
 integrateBallPolynomial <- function( p, R=c(0.0,1.0) ) {
 # compute the exact integral over (part of) a ball in n dimensions of
@@ -84,29 +90,30 @@ integrateBallPolynomial <- function( p, R=c(0.0,1.0) ) {
 
 n <- ncol(p$k)
 b <- integrateSpherePolynomial( p, valueOnly=FALSE )
-value <- 0.0
+integral <- 0.0
 for (i in 1:length(p$coef)) {
   power <- n + sum(p$k[i,])
-  value <- value + b$term[i]*(R[2]^power-R[1]^power)/power
+  integral <- integral + b$term[i]*(R[2]^power-R[1]^power)/power
 }
-return(value)}
+return(integral)}
 ########################################################################
-adaptIntegrateSphere <- function( f, n, lowerLimit=rep(0.0,n-1),
+adaptIntegrateSpherePolar <- function( f, n, lowerLimit=rep(0.0,n-1),
                     upperLimit=c(rep(pi,n-2),2*pi), tol=1e-05, ... ) {
 # Integrate f(x[1],...,x[n]) over the portion of the unit sphere
 #     bounded by *polar* coordinates lowerLimit and upperLimit.
 #     If the integrand has abrupt changes, the adaptive integration
 #     routine may miss that change.  You can prevent this if you
 #     know the location of the change points by calling
-#     adaptIntegrateSphereSplit( ), which will split up the region
+#     adaptIntegrateSpherePolarSplit( ), which will split up the region
 #     of integration at/near specified points.
 #
 # The result is a list with multiple fields.  In all cases, the value of
-# the integral is stored in the field $value.  Other fields are specific to
+# the integral is stored in the field $integral.  Other fields are specific to
 # the dimension: if n=2, the list is what is returned by integrate( );
 # if n > 2, the list is what is returned by adaptIntegrate( ) from
 # the package cubature.
 
+if( !is.function(f) ) { stop("first argument is not a function" ) }
 n <- as.integer(n)
 a <- adaptIntegrateCheck( n, lowerLimit, upperLimit, R=c(0.0,1.0), xstar=matrix(0.0,nrow=n,ncol=0), width=0.0 )
 
@@ -123,7 +130,8 @@ if (n == 2) {   # use adaptive univariate integration
       return(y) }
     
   z <- integrate( polar.f, lower=lowerLimit, upper=upperLimit, rel.tol=tol, rect.f=f,... )
-  if (z$message != "OK") warning(paste("Error in adaptIntegrateSphere: error return from integrate(...) ",z$message))
+  if (z$message != "OK") warning(paste("Error in adaptIntegrateSpherePolar: error return from integrate(...) ",z$message))
+  z$integral <- z$value
   return( z )
 }
 
@@ -141,11 +149,10 @@ polar.f <- function( phi, rect.f, ... ) {
 
 z <- adaptIntegrate( polar.f,  lowerLimit=lowerLimit, upperLimit=upperLimit,
          tol=tol, rect.f=f, ... )
-if(z$returnCode != 0) warning(paste("Error in adaptIntegrateSphere: return from adaptIntegrate=",z$returnCode))
-z$value <- z$integral
+if(z$returnCode != 0) warning(paste("Error in adaptIntegrateSpherePolar: return from adaptIntegrate=",z$returnCode))
 return(z) }
 ########################################################################
-adaptIntegrateSphereSplit <- function( f, n, xstar, width=0,
+adaptIntegrateSpherePolarSplit <- function( f, n, xstar, width=0,
        lowerLimit=rep(0.0,n-1), upperLimit=c(rep(pi,n-2),2*pi), tol=1e-05, ... ) {
 # Integrate f(x[1],...,x[n]) over the portion of the unit sphere
 #     bounded by *polar* coordinates lowerLimit and upperLimit.
@@ -155,12 +162,13 @@ adaptIntegrateSphereSplit <- function( f, n, xstar, width=0,
 #     integration into pieces, with rectangles of side width[j] around
 #     each point xstar[,j].  (If width[j]=0, then just split at each
 #     point xstar[ ,j].
-# Since this function makes repetitive calls to adaptIntegrateSphere,
+# Since this function makes repetitive calls to adaptIntegrateSpherePolar,
 #     and that function prints a warning when something isn't right,
 #     this function only returns a single number, the estimated
 #     value of the integral
 
 # check input and set up things
+if( !is.function(f) ) { stop("first argument is not a function" ) }
 if (!is.matrix(xstar)) xstar <- as.matrix(xstar,ncol=1)
 a <- adaptIntegrateCheck( n,  lowerLimit, upperLimit, R=c(0.0,1.0), xstar, width  )
 m <- a$m
@@ -170,9 +178,8 @@ newWidth <- a$width
 # of the vectors xstar[ ,j], j=1:m
 partition <- partitionRegion( xstar, newWidth, lowerLimit, upperLimit )
 
-#for (i in 1:length(partition$count)) { cat(i,partition$count[i],"   ",partition$phi[[i]],"\n") }
 
-value <- 0.0
+integral <- 0.0
 size <- partition$count - 1
 j <- rep(1L,n-1)
 low <- rep(0.0,n-1)
@@ -182,15 +189,14 @@ repeat {
     low[i] <- partition$phi[[i]][j[i]]
     up[i] <- partition$phi[[i]][j[i]+1]
   }
-  #cat("j=",j,"    ",low,"   ",up,"\n")
-  b <- adaptIntegrateSphere( f, n, low,up, tol, ... )
-  value <- value + b$value
+  b <- adaptIntegrateSpherePolar( f, n, low,up, tol, ... )
+  integral <- integral + b$integral
   j <- nextMultiIndex(j, size)
   if (j[1] < 0 ) { break }
 }
-return(value) }
+return(integral) }
 ########################################################################
-adaptIntegrateBall <- function( f, n, lowerLimit=rep(0.0,n-1),
+adaptIntegrateBallPolar <- function( f, n, lowerLimit=rep(0.0,n-1),
                     upperLimit=c(rep(pi,n-2),2*pi), R=c(0.0,1.0), tol=1e-05, ... ) {
 # integrate f(x[1],...,x[n]) over the portion of the unit ball
 #     bounded by *polar* coordinates lowerLimit and upperLimit and
@@ -198,13 +204,14 @@ adaptIntegrateBall <- function( f, n, lowerLimit=rep(0.0,n-1),
 #     If the integrand has abrupt changes, the adaptive integration
 #     routine may miss that change.  You can prevent this if you
 #     know the location of the change points by calling
-#     adaptIntegrateBallSplit( ), which will split up the region
+#     adaptIntegrateBallPolarSplit( ), which will split up the region
 #     of integration at/near specified points.
 #
 # The result is a list with multiple fields.  In all cases, the value of
-# the integral is stored in the field $value.  The list is what is
+# the integral is stored in the field $integral.  The list is what is
 # returned by adaptIntegrate( ) from the package cubature.
 
+if( !is.function(f) ) { stop("first argument is not a function" ) }
 n <- as.integer(n)
 a <- adaptIntegrateCheck( n, lowerLimit, upperLimit, R=R, xstar=matrix(0.0,nrow=n,ncol=0), width=0.0 )
 
@@ -227,11 +234,10 @@ polar.f <- function( r.phi, rect.f, ... ) {
 
 z <- adaptIntegrate( polar.f,  lowerLimit=c(R[1],lowerLimit), upperLimit=c(R[2],upperLimit),
          tol=tol, rect.f=f, ... )
-if(z$returnCode != 0) warning(paste("Error in adaptIntegrateBall: return from adaptIntegrate=",z$returnCode))
-z$value <- z$integral
+if(z$returnCode != 0) warning(paste("Error in adaptIntegrateBallPolar: return from adaptIntegrate=",z$returnCode))
 return(z) }
 ########################################################################
-adaptIntegrateBallSplit <- function( f, n, xstar, width=0.0, lowerLimit=rep(0.0,n-1),
+adaptIntegrateBallPolarSplit <- function( f, n, xstar, width=0.0, lowerLimit=rep(0.0,n-1),
                     upperLimit=c(rep(pi,n-2),2*pi), R=c(0.0,1.0), tol=1e-05, ... ) {
 # integrate f(x[1],...,x[n]) over the portion of the unit ball
 #    bounded by *polar* coordinates lowerLimit and upperLimit and
@@ -242,12 +248,13 @@ adaptIntegrateBallSplit <- function( f, n, xstar, width=0.0, lowerLimit=rep(0.0,
 #     integration into pieces, with rectangles of side width[j] around
 #     each point xstar[,j].  (If width[j]=0, then just split at each
 #     point xstar[ ,j].
-# Since this function makes repetitive calls to adaptIntegrateSphere,
+# Since this function makes repetitive calls to adaptIntegrateSpherePolar,
 #     and that function prints a warning when something isn't right,
 #     this function only returns a single number, the estimated
 #     value of the integral
 
 # check input and set up things
+if( !is.function(f) ) { stop("first argument is not a function" ) }
 if (!is.matrix(xstar)) xstar <- as.matrix(xstar,ncol=1)
 a <- adaptIntegrateCheck( n,  lowerLimit, upperLimit, R=R, xstar=xstar, width=width  )
 m <- a$m
@@ -257,9 +264,8 @@ newWidth <- a$width
 # of the vectors xstar[ ,j], j=1:m
 partition <- partitionRegion( xstar, newWidth, lowerLimit, upperLimit )
 
-#for (i in 1:length(partition$count)) { cat(i,partition$count[i],"   ",partition$phi[[i]],"\n") }
 
-value <- 0.0
+integral <- 0.0
 size <- partition$count - 1
 j <- rep(1L,n-1)
 low <- rep(0.0,n-1)
@@ -269,13 +275,12 @@ repeat {
     low[i] <- partition$phi[[i]][j[i]]
     up[i] <- partition$phi[[i]][j[i]+1]
   }
-  #cat("j=",j,"    ",low,"   ",up,"\n")
-  b <- adaptIntegrateBall( f, n, low,up, R=R, tol, ... )
-  value <- value + b$value
+  b <- adaptIntegrateBallPolar( f, n, low,up, R=R, tol, ... )
+  integral <- integral + b$integral
   j <- nextMultiIndex(j, size)
   if (j[1] < 0 ) { break }
 }
-return(value) }
+return(integral) }
 ########################################################################
 polar2rect <- function( r, phi ) {
 # Convert polar coordinates to rectangular coordinates in n-dimensions.
@@ -353,6 +358,7 @@ integrateSphereStroud11 <- function( f, n, ... ) {
 #  (2) in dimension 7, Burkhardt's program a mistake
 #     in constant coef21[7], it should be 0.0337329118818, not 0.0336329118818
 
+if( !is.function(f) ) { stop("first argument is not a function" ) }
 # check that dimesion isn't too small or too large
 if (n < 3) stop("Error in Stroud11IntegrateSphere: n < 3")
 if (n > 16) stop("Error in Stroud11IntegrateSphere: n > 16")
@@ -477,6 +483,199 @@ ballVolume <- function( n, R=1.0 ) {
 
 volume <- R^n * pi^(n/2)/gamma((n/2.0)+1.0)
 return(volume)}
+##############################################################
+adaptIntegrateSphereTri <- function( f, S, fDim=1L, maxEvals=20000L, absError=0.0, 
+    tol=1.0e-5, integRule=3L, partitionInfo=FALSE, ...  ) {
+# Adaptively integrate f(x) over the unit sphere using a hyperspherical triangle 
+# approximation to the sphere give by the hyperspherical triangles in S.
+# It is assumed that the points in S are unit vectors (up to double precision accuracy).
+# On entry, dim(S)=c(n,n,nS), with S[ ,i,j] is the i-th vertex of hypertriangle j
+# Other aguments are the same as in adaptIntegrateSimplex in package SimplicialCubature.
+# ... are optional arguments are passed to function f when it is evaluated
+
+# error checking
+if( !is.function(f) ) stop("argument f must be a function")
+if( is.matrix(S) )  { S <- array( S, dim=c(nrow(S),ncol(S),1)) }
+if( !is.array(S) | (length(dim(S)) != 3) ) stop("S must be a single simplex or an array of simplices")
+tmp <- dim(S); n <- tmp[1]; m <- tmp[2]-1; nS <- tmp[3]
+if( m != n-1 ) stop("S must be (n-1) dimensional simplex/simplices")
+CheckUnitVectors( S )
+
+# define the transformed function which evaluates the original function f(x) at a 
+# a single point in R^n, returning a single number
+transformedF <- function( x ) { 
+  const <- 1.0/sqrt( sum(x^2) )
+  y <- f( const*x, ... ) * const^length(x)
+  return(y) }
+    
+result <- SimplicialCubature::adaptIntegrateSimplex( transformedF, S, fDim, maxEvals, 
+             absError, tol, integRule, partitionInfo, ... )
+result$integral <- result$integral/sqrt(n)
+
+if( (result$returnCode == 0) & partitionInfo) {
+  # normalize all points in the grid.
+  for (i in 1:dim(result$subsimplices)[3]) {
+    for (j in 1:n) {
+      len <- sqrt(sum(result$subsimplices[,j,i]^2))
+      result$subsimplices[,j,i] <- result$subsimplices[,j,i]/len
+    }
+    result$subsimplicesVolume[i] <- SimplexSurfaceArea( result$subsimplices[,,i] )    
+  }
+}
+return(result) }
+##############################################################
+CheckUnitVectors <- function( S, eps=1.0e-14) {
+# check that the columns in S are all unit vectors; stop if not
+# S can be a vector, a matrix, or an array
+
+if (is.vector(S) ) { S <-  matrix(S,ncol=1) }
+if (is.array(S) & length(dim(S)) > 2) {  S <- matrix(S,nrow=nrow(S)) }
+stopifnot( is.matrix(S), is.numeric(S) )
+
+a <- colSums( S^2 ) 
+if (any(abs(sqrt(a)-1) > eps) ) {stop("Some columns of S are not unit vectors") }
+}
+##############################################################
+Octants <- function( n, positive.only=FALSE ) {
+# return the octants in n-dimensions
+
+a <- mvmesh::UnitSphere( n=n, k=0, positive.only=positive.only)
+return( aperm( a$S, c(2,1,3) ) ) }
+#######################################################################
+# adaptive numerical integration on spherical triangles in 3d, based on the
+# paper by N. Boal and F-J. Sayas at: 
+#     www.unizar.es/galdeano/actas_pau/PDFVIII/pp61-69.pdf
+# That paper and this function only work in 3-dim.
+###############################################################
+adaptIntegrateSphereTri3d <- function( f, S, maxRef=50, relTol=0.001, 
+    maxTri=50000, gamma=1.5 ) {
+# adaptive integration over spherical triangles in 3-dim
+#    f is the integrand function, a function of 3 variables
+#    S is the array of initial triangles, dim(S)=c(3,3,n0); 
+#       S[ ,i,j] is the i-th vertex of triangle j
+#    maxRef is the maximum number of refinements allowed
+#    relTol is the desired relative tolerance
+#    maxTri is the maximum number of triangles allowed while refining
+#    gamma >= 1, is the threshold parameter for when a triangle is subdivided,
+#
+
+if( !is.function(f) ) { stop("first argument is not a function" ) }
+if( is.matrix(S) ) { S <- array(S,dim=c(nrow(S),ncol(S),1) ) }
+CheckUnitVectors( S )
+
+n0 <- dim(S)[3]
+K <- array( c(S,rep(0.0,9*(maxTri-n0))),dim=c(3,3,maxTri) )
+I0 <- rep(0.0,maxTri) 
+E <- rep(0.0,maxTri)
+# loop through initial triangles and compute approx. and estimated error
+for (k in 1:n0) { 
+  I0[k] <- adaptIntegrateSphereTriI0(f, S[,,k])
+  tmp <- adaptIntegrateSphereTriI1( f, S[,,k] )
+  E[k] <- (4/3)*( tmp$newI1 - I0[k] )
+}
+Esum <- sum(E[1:n0])
+absEsum <- sum(abs(E[1:n0]))
+I0sum <- sum(I0[1:n0])
+nk <- n0
+
+
+# continually refine triangulation, until either reaching desired accuracy,
+# or have used the maximum number of refinements
+status <- "max number of refinements reached without desired accuracy, increase maxRef"
+for (i in  1:maxRef) {
+  # if we've achieved desired accuracy, exit early from loop
+  if ( abs(Esum) < relTol*abs(I0sum) ) {
+    status <- "success"
+    break   
+  }
+
+  # otherwise, loop through triangles and search for ones to subdivide
+  newcount <- 0
+  threshold <- (gamma/nk)*absEsum
+  refTri <- which( abs(E[1:nk]) > threshold ) # triangles to refine
+  if ( length(refTri)==0 ) {
+    # if no terms exceed threshold, split all triangles
+    refTri <- 1:nk
+  }
+ 
+  tooManyTri <- FALSE
+  for (j in refTri ) {
+    if (nk+newcount+3 > maxTri){ 
+      tooManyTri <- TRUE 
+      status <- "error: too many triangles, increase maxTri or decrease relTol"
+      break
+    }
+   
+    # compute I1 and error estimates
+    tmp <- adaptIntegrateSphereTriI1( f, K[,,j] )
+    newE <- rep(0.0,4)
+    for (ii in 1:4) {   # not efficient, but works for a first pass...
+      tmp2 <- adaptIntegrateSphereTriI1(f,tmp$newK[,,ii])
+      newE[ii] <- (4/3)*(tmp2$newI1 - tmp$newI0[ii])
+    }
+   
+    # add 4 new triangles and corresponding values to arrays
+    for (ii in 1:3) {
+      newcount <- newcount+1
+      K[,,nk+newcount] <- tmp$newK[,,ii]
+      I0[nk+newcount] <- tmp$newI0[ii]
+      E[nk+newcount] <- newE[ii]
+    }
+    K[,,j] <- tmp$newK[,,4]
+    oldI0 <- I0[j]
+    oldE <- E[j]
+    I0[j] <- tmp$newI0[4]
+    E[j] <- newE[4]
+   
+    # adjust the sums to reflect new terms
+    I0sum <- I0sum - oldI0 + tmp$newI1
+    Esum <- Esum - oldE + sum(newE)
+    absEsum <- absEsum - abs(oldE) + sum(abs(newE))
+  }
+  nk <- nk + newcount
+  if (tooManyTri) { break }
+}
+
+return(list(integral=I0sum,I0=I0[1:nk],numRef=i,nk=nk,K=K[,,1:nk,drop=FALSE],est.error=Esum,status=status ) ) }
+###############################################################
+adaptIntegrateSphereTriI0 <- function( f, K ){
+# compute I0(K) 
+v1 <- K[,1]; v2 <- K[,2]; v3 <- K[,3]
+dv21 <- v2-v1; dv31 <- v3-v1
+
+bhat <- c(1/3,1/3) # barycenter of reference triangle Khat
+f.bhat <- v1 + bhat[1]*dv21 - bhat[2]*dv31
+c1 <- sqrt( sum(f.bhat^2) ) # norm of f.bhat
+b <- f.bhat/c1
+
+dtg <- dv21/c1 - sum(f.bhat*dv21)*f.bhat/c1^3
+dsg <- dv31/c1 - sum(f.bhat*dv31)*f.bhat/c1^3
+xprod <- c(dtg[2]*dsg[3]-dsg[2]*dtg[3], 
+           dtg[3]*dsg[1]-dsg[3]*dtg[1],
+           dtg[1]*dsg[2]-dsg[1]*dtg[2] )
+omegaK <- sqrt(sum(xprod^2))/2.0
+I0 <- omegaK * f(b)
+return(I0) }
+##############################################################
+adaptIntegrateSphereTriSubdivideK <- function( K ) {
+# subdivide spherical triangle K into 4 subtriangles
+
+v1 <- K[,1]; v2 <- K[,2]; v3 <- K[,3]
+tmp <- v2+v3;  m1 <- tmp/sqrt(sum(tmp^2))
+tmp <- v1+v3;  m2 <- tmp/sqrt(sum(tmp^2))
+tmp <- v1+v2;  m3 <- tmp/sqrt(sum(tmp^2))
+newK <- array( c(v1,m2,m3, v2,m3,m1, v3,m1,m2, m1,m2,m3), dim=c(3,3,4) )
+return(newK) }
+##############################################################
+adaptIntegrateSphereTriI1 <- function( f, K ) {
+# compute I1(K)
+newK <- adaptIntegrateSphereTriSubdivideK( K )
+newI0 <- rep(0.0,4)
+for (i in 1:4) {
+  newI0[i] <- adaptIntegrateSphereTriI0( f, newK[,,i] )
+}
+newI1 <- sum(newI0)
+return(list(newI1=newI1,newI0=newI0,newK=newK)) }
 #############################################################################
 #############################################################################
 # remaining functions are internal, not meant to be called by user.
@@ -615,4 +814,3 @@ if (R[1] < 0.0) stop("adaptIntegrateCheck: R[1] must be nonnegative")
 if (R[1] >= R[2]) stop("adaptIntegrateCheck: R[2] must be bigger than R[1]")
 
 return(list(m=m,width=width) )}
-#######################################################################

@@ -31,7 +31,7 @@ Based on the book by A. H. Stroud, Approximate Calculation of
 multiple integrals, 1971, page 296-297.
 }
 \seealso{
-\code{\link{adaptIntegrateSphere}}, \code{\link{adaptIntegrateBall}}
+\code{\link{adaptIntegrateSpherePolar}}, \code{\link{adaptIntegrateBallPolar}}, \code{\link{adaptIntegrateSphereTri}}
 }
 \examples{
 f2 <- function( x ) { return(x[1]^2) }
