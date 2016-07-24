@@ -1,12 +1,12 @@
-963f049cd700da1f3c2d755d93d98bfd *DESCRIPTION
+0570a7ebe2abbc883a87b43ce32463b8 *DESCRIPTION
 f8b9edd06b46dd0d756903ee63061c8a *NAMESPACE
-abb77c52684ae836abe1edb673e347ef *R/SphericalCubature.R
+9806ca1e77928525349c08fc9ddc9a97 *R/SphericalCubature.R
 dc12536ccac90efa63f639fe22c7f998 *demo/00Index
-7103efb606a2fdbac7829fb101710ba5 *demo/SphericalCubature.R
-9c2b7fba041349fe3faf1c27ef65ec8c *man/SphericalCubature-package.Rd
+e430c9bd2968d93e3a87771c5ebaabe9 *demo/SphericalCubature.R
+b361832ae3744d23b358bf979f32c0da *man/SphericalCubature-package.Rd
 f298cf3138e9d61e19301e1aee93ab5b *man/SphericalMisc.Rd
 3cc73aa42931e4a89ff01720fa6d5d1c *man/adaptIntegrateSpherePolar.Rd
-451c0997a172d7d1f0cf9f696c4c9cd6 *man/adaptIntegrateSphereTri.Rd
+9e4d708455e144fb906b370b3cf96292 *man/adaptIntegrateSphereTri.Rd
 73987341a0f7ad11daa6efe2b36bd19d *man/integrateSpherePolynomial.Rd
 826f89d8b99b3281b5642c8c9d20617e *man/integrateSphereStroud11.Rd
 164dcfb340c770be16ce033bc2e9b94c *man/rect2polar.Rd

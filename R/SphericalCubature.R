@@ -498,8 +498,15 @@ if( !is.function(f) ) stop("argument f must be a function")
 if( is.matrix(S) )  { S <- array( S, dim=c(nrow(S),ncol(S),1)) }
 if( !is.array(S) | (length(dim(S)) != 3) ) stop("S must be a single simplex or an array of simplices")
 tmp <- dim(S); n <- tmp[1]; m <- tmp[2]-1; nS <- tmp[3]
-if( m != n-1 ) stop("S must be (n-1) dimensional simplex/simplices")
+if( m != n-1 ) stop("S must be (n-1) dimensional simplex/simplices in n dimensional space")
 CheckUnitVectors( S )
+
+# check that all vertices in a given simplex lie in the same octant
+for (j in 1:nS) {
+  for (i in 1:n) {
+    if (!all( S[,1,j]*S[,i,j] >= 0.0) ) stop(paste("Simplex",j,"has vertices in different octants"))
+  }
+}
 
 # define the transformed function which evaluates the original function f(x) at a 
 # a single point in R^n, returning a single number
@@ -507,12 +514,25 @@ transformedF <- function( x ) {
   const <- 1.0/sqrt( sum(x^2) )
   y <- f( const*x, ... ) * const^length(x)
   return(y) }
-    
-result <- SimplicialCubature::adaptIntegrateSimplex( transformedF, S, fDim, maxEvals, 
-             absError, tol, integRule, partitionInfo, ... )
+
+# convert all simplices to lie on the l_1 ball: sum(abs(S[,i,j]))=1.  THis is 
+# assumed by the change of variables formula in transformedF( ) above.
+newS <- array( 0.0, dim=dim(S) )
+for (j in 1:nS) {
+  for (i in 1:n) {
+    newS[,i,j] <- S[,i,j]/ sum(abs(S[,i,j]))
+  }
+}
+
+# integrate over new simplices
+result <- SimplicialCubature::adaptIntegrateSimplex(transformedF, newS, fDim, 
+  maxEvals, absError, tol, integRule, partitionInfo, ...)
+  
+# repackage result to give adjusted values
 result$integral <- result$integral/sqrt(n)
 
 if( (result$returnCode == 0) & partitionInfo) {
+  result$subsimplicesIntegral <- result$subsimplicesIntegral/sqrt(n)
   # normalize all points in the grid.
   for (i in 1:dim(result$subsimplices)[3]) {
     for (j in 1:n) {
@@ -562,6 +582,7 @@ adaptIntegrateSphereTri3d <- function( f, S, maxRef=50, relTol=0.001,
 if( !is.function(f) ) { stop("first argument is not a function" ) }
 if( is.matrix(S) ) { S <- array(S,dim=c(nrow(S),ncol(S),1) ) }
 CheckUnitVectors( S )
+if( nrow(S) != 3 ) { stop("This function only works in 3-dimensions; S must be a 3 x 3 x m array") }
 
 n0 <- dim(S)[3]
 K <- array( c(S,rep(0.0,9*(maxTri-n0))),dim=c(3,3,maxTri) )

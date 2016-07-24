@@ -67,7 +67,10 @@ Version history:
 \item 1.0.0 (2013-05-16) original package
 \item 1.0.1 (2013-05-24) fix mistake in \code{adaptIntegrateBallPolarSplit}, fix example in \code{integratePolynomialSphere}, add more documentation
 \item 1.0.2 (2013-12-18) add function \code{adaptIntegrateSphereTri3d} to integrate over spherical triangles in 3-dimensions
-\item 1.1 (2016-05-14) add function \code{adaptIntegrateSphereTri} to integrate over hyperspherical triangles in n-dimensions
+\item 1.1 (2016-05-14) add function \code{adaptIntegrateSphereTri} to integrate over hyperspherical triangles in n-dimensions. 
+\item 1.2 (2016-07-23) improve \code{adaptIntegrateSphereTri} where the integration over octants worked, but integrals over other subdivisions did not.
+     New version works over any subdivision that doesn't cross into different octants (this is checked). 
+     Minor changes to documentation were made and more checks on input values were added.
 }
 }
 
@@ -97,7 +100,7 @@ sphereArea( n )
 integrateSphereStroud11( f1, n )
 p <- list(coef=1.0,k=matrix( rep(0L,n), nrow=1,ncol=n))
 integrateSpherePolynomial( p )
-adaptIntegrateSpherePolar( f1, n )$value 
+adaptIntegrateSpherePolar( f1, n )$integral 
 
 # test of polynomial integration
 f2 <- function( x ) { return(x[1]^2) }
@@ -105,5 +108,6 @@ sphereArea(n)/n # exact answer
 integrateSphereStroud11( f2, n )
 p <- list(coef=1.0,k=matrix( c(2L,rep(0L,n-1)), nrow=1) )
 integrateSpherePolynomial( p )
-adaptIntegrateSpherePolar( f2, n )$value
+adaptIntegrateSpherePolar( f2, n )$integral
+
 }
