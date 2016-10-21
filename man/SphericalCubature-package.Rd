@@ -71,6 +71,9 @@ Version history:
 \item 1.2 (2016-07-23) improve \code{adaptIntegrateSphereTri} where the integration over octants worked, but integrals over other subdivisions did not.
      New version works over any subdivision that doesn't cross into different octants (this is checked). 
      Minor changes to documentation were made and more checks on input values were added.
+\item 1.3 (2016-10-20)  Improve changes in version 1.2: remove the restricition on simplices in \code{adaptIntegrateSphereTri}.  
+    The input simplices are analyzed and if a simplex is in more than one octant, it is automatically subdivided, giving a 
+    list of simplices that exactly cover the same part of the sphere and respect each octant.
 }
 }
 

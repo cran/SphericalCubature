@@ -21,9 +21,10 @@ adaptIntegrateSphereTriSubdivideK( K )
 }
 \arguments{
   \item{f}{function f defined on the sphere}
-  \item{S}{array of hyperspherical triangles, dim(S)=c(n,n,nS).  Columns of S should be points on the unit sphere: sum(S[,i,j]^2)=1. It is required that every simplex S[,i,j] is 
-  contained within a single octant; it can be any octant, but not simplices can't have vertices in different octants.  This will happend automatically if Octants( ) is 
-  used to generate octants, or if S is a tessellationg coming from function \code{UnitSphere} in package \code{mvmesh} (or a subdivision of such a partition).}
+  \item{S}{array of hyperspherical triangles, dim(S)=c(n,n,nS).  Columns of S should be points on the unit sphere: sum(S[,i,j]^2)=1. Execution will be faster if every simplex S[,,j] is 
+  contained within any single octant.  This will happend automatically if function \code{Octants}  is 
+  used to generate octants, or if S is a tessellation coming from function \code{UnitSphere} in package \code{mvmesh}. If one or more simplices
+  interect multiple octants, the simplices will automatically be subdivided so that each subsimplex is in a single octant.}
   \item{fDim}{integer dimension of the integrand function}
   \item{maxEvals}{maximum number of evaluations allowed}
   \item{absError}{desired absolute error}
@@ -60,8 +61,6 @@ than \code{adaptIntegrateSphereTri}. Use the function \code{Octants} to get a ro
 the sphere; see the examples below.  For finer resolution triangulation can be obtained from 
 \code{UnitSphere} in \R package \code{mvmesh}.    
 For description of \code{adaptIntegrateSphereTri3d} see www.unizar.es/galdeano/actas_pau/PDFVIII/pp61-69.pdf. 
-
-
 }
 \value{A list containing 
 \item{status}{a string describing result, ideally it should be "success", otherwise it is an error/warning message.}

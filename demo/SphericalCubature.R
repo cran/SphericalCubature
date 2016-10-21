@@ -27,43 +27,39 @@ for (n in 2:4) {
 }
 
 # check that different subdivisions of sphere work correctly
-f4 <- function( x ) { 1.0 }
 for (n in 2:3) { 
   for (k in 0:3) {
     s1 <-  UnitSphere( n, k )
     sphere <- aperm( s1$S, c(2,1,3) )
-    a <- adaptIntegrateSphereTri( f4, sphere, partitionInfo=TRUE )
+    a <- adaptIntegrateSphereTri( f1, sphere, partitionInfo=TRUE )
     cat(n,k,a$integral,sphereArea( n ),"\n") # (calculated value, exact answer)
   }
 }
 
 # test of polynomial integration f(s)=s[1]^2
-f <- function( s ) { return( s[1]^2 ) }
+f5 <- function( s ) { return( s[1]^2 ) }
 n <- 3
 S <- Octants( n, positive.only=TRUE )
-a <- adaptIntegrateSphereTri( f, S )
+a <- adaptIntegrateSphereTri( f5, S )
 sphereArea(n)/(2^n*n) - a$integral  # error=exact-cubature approximation
 
 # increase accuracy by specifying a smaller tolerance
-a <- adaptIntegrateSphereTri( f, S, tol=1.0e-12 ) 
+a <- adaptIntegrateSphereTri( f5, S, tol=1.0e-12 ) 
 a$message # but see that we exceed maximum number of evaluations
 sphereArea(n)/(2^n*n) - a$integral  # error improved, but not what we asked for
-a <- adaptIntegrateSphereTri( f, S, maxEvals=200000, tol=1.0e-12 ) # increase accuracy
+a <- adaptIntegrateSphereTri( f5, S, maxEvals=200000, tol=1.0e-12 ) # increase accuracy
 a$message
 sphereArea(n)/(2^n*n) - a$integral  # still too many evals, but better accuracy
 
 # integrate over a subdivision of the positve octant; note that this improves accuracy 
 #       and decreases the number of function evaluations
 S <- aperm( UnitSphere(n,k=2,positive.only=TRUE)$S, c(2,1,3) )
-a <- adaptIntegrateSphereTri( f, S) # increase accuracty
+a <- adaptIntegrateSphereTri( f5, S) # increase accuracty
 sphereArea(n)/(2^n*n) - a$integral  # error=exact-cubature approximation
 
 
-# check that simplices crossing octants gives an error message
+# check that simplices crossing octants gives correct answer
 b <- sqrt(2)/2
 badS <- matrix( c(b,b,  -b, b), nrow=2, ncol=2) # 2d example
-adaptIntegrateSphereTri( f4, badS )  # should give error message 
-
-badS <- matrix( c(b,b,0,0,  0,0,-b, b), nrow=3, ncol=2) # 4d example
-adaptIntegrateSphereTri( f4, badS )  # should give error message 
+adaptIntegrateSphereTri( f1, badS ) 
 

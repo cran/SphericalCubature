@@ -115,7 +115,7 @@ adaptIntegrateSpherePolar <- function( f, n, lowerLimit=rep(0.0,n-1),
 
 if( !is.function(f) ) { stop("first argument is not a function" ) }
 n <- as.integer(n)
-a <- adaptIntegrateCheck( n, lowerLimit, upperLimit, R=c(0.0,1.0), xstar=matrix(0.0,nrow=n,ncol=0), width=0.0 )
+a <- adaptIntegrateSphereCheck( n, lowerLimit, upperLimit, R=c(0.0,1.0), xstar=matrix(0.0,nrow=n,ncol=0), width=0.0 )
 
 if (n == 2) {   # use adaptive univariate integration
   polar.f <- function( phi, rect.f, ... ) {
@@ -170,7 +170,7 @@ adaptIntegrateSpherePolarSplit <- function( f, n, xstar, width=0,
 # check input and set up things
 if( !is.function(f) ) { stop("first argument is not a function" ) }
 if (!is.matrix(xstar)) xstar <- as.matrix(xstar,ncol=1)
-a <- adaptIntegrateCheck( n,  lowerLimit, upperLimit, R=c(0.0,1.0), xstar, width  )
+a <- adaptIntegrateSphereCheck( n,  lowerLimit, upperLimit, R=c(0.0,1.0), xstar, width  )
 m <- a$m
 newWidth <- a$width
 
@@ -213,7 +213,7 @@ adaptIntegrateBallPolar <- function( f, n, lowerLimit=rep(0.0,n-1),
 
 if( !is.function(f) ) { stop("first argument is not a function" ) }
 n <- as.integer(n)
-a <- adaptIntegrateCheck( n, lowerLimit, upperLimit, R=R, xstar=matrix(0.0,nrow=n,ncol=0), width=0.0 )
+a <- adaptIntegrateSphereCheck( n, lowerLimit, upperLimit, R=R, xstar=matrix(0.0,nrow=n,ncol=0), width=0.0 )
 
 # use adaptIntegrate from package cubature
 # internal integrand function
@@ -256,7 +256,7 @@ adaptIntegrateBallPolarSplit <- function( f, n, xstar, width=0.0, lowerLimit=rep
 # check input and set up things
 if( !is.function(f) ) { stop("first argument is not a function" ) }
 if (!is.matrix(xstar)) xstar <- as.matrix(xstar,ncol=1)
-a <- adaptIntegrateCheck( n,  lowerLimit, upperLimit, R=R, xstar=xstar, width=width  )
+a <- adaptIntegrateSphereCheck( n,  lowerLimit, upperLimit, R=R, xstar=xstar, width=width  )
 m <- a$m
 newWidth <- a$width
 
@@ -483,6 +483,63 @@ ballVolume <- function( n, R=1.0 ) {
 
 volume <- R^n * pi^(n/2)/gamma((n/2.0)+1.0)
 return(volume)}
+#################################################################################
+SubdivideSphereTriByOctant <- function( S, eps=1.0e-14 ) {
+# Ensure that each spherical triangle is contained in a single octant.
+# The approach is to construct the cones using the origin and each spherical triangle, 
+# giving n dim. simplices (whereas the orginal S is a list of (n-1) dim. simplices).  
+# Those cones are then intersected with the octants, and finally the vertex at 
+# the origin is removed and all other vertices a normalized to be on the unit sphere.
+
+# check input
+CheckUnitVectors( S )
+n <- dim(S)[1] # dimension of the vectors
+nS <- dim(S)[3] # number of simplices
+
+# convert from column vectors to row vectors & get H representation
+HS <- mvmesh::HrepCones( aperm( S, perm=c(2,1,3) ) )
+HOctants <- mvmesh::V2Hrep( mvmesh::UnitBall(n,k=0,p=1)$S )
+
+# intersect spherical triangles with octants
+newMesh <- mvmesh::IntersectMultipleSimplicesH( HS, HOctants )
+
+# convert non-zero vertices to to unit vectors
+n.newS <- dim(newMesh$S)[3]
+newS <- array( 0.0, dim=c(n,n,n.newS) )
+for (i in 1:n.newS) {
+  temp <- t( newMesh$S[,,i] )
+  r <- sqrt( colSums( temp^2 ) )
+  reject <- which(r <= eps )
+  if (length(reject) != 1) stop( paste("simplex=",i,"  length(reject)=",length(reject),"   reject=",reject) )
+  k <- 0L
+  for (j in 1:(n+1)) {
+    if (j != reject) {
+      k <- k + 1
+      newS[ ,k,i] <- temp[,j]/r[j]
+    }
+  }
+}
+
+# clean up: replace small values with 0.  This is apparently caused by
+# converting between V and H representations and intersecting simplices,
+# and tessellating the resulting subsimplices
+trim.count <- 0L
+for (i in 1:n.newS) {
+  for (j in 1:n) {
+    for (k in 1:n) {
+      if( (abs(newS[j,k,i]) > 0) & (abs(newS[j,k,i]) < eps)) { 
+        #cat("trimming: ",i,j,k,newS[j,k,i],"\n"); 
+        newS[j,k,i] <- 0 
+        trim.count <- trim.count + 1
+      }
+    }
+  }
+}
+
+dimnames(newS) <- NULL # clean up junk dimnames
+
+return( list( S=newS, original.simplex=newMesh$index1, 
+              octant=newMesh$index2, trim.count=trim.count  ) ) }
 ##############################################################
 adaptIntegrateSphereTri <- function( f, S, fDim=1L, maxEvals=20000L, absError=0.0, 
     tol=1.0e-5, integRule=3L, partitionInfo=FALSE, ...  ) {
@@ -497,16 +554,14 @@ adaptIntegrateSphereTri <- function( f, S, fDim=1L, maxEvals=20000L, absError=0.
 if( !is.function(f) ) stop("argument f must be a function")
 if( is.matrix(S) )  { S <- array( S, dim=c(nrow(S),ncol(S),1)) }
 if( !is.array(S) | (length(dim(S)) != 3) ) stop("S must be a single simplex or an array of simplices")
-tmp <- dim(S); n <- tmp[1]; m <- tmp[2]-1; nS <- tmp[3]
+tmp <- dim(S)
+n <- tmp[1]
+m <- tmp[2]-1
 if( m != n-1 ) stop("S must be (n-1) dimensional simplex/simplices in n dimensional space")
-CheckUnitVectors( S )
 
-# check that all vertices in a given simplex lie in the same octant
-for (j in 1:nS) {
-  for (i in 1:n) {
-    if (!all( S[,1,j]*S[,i,j] >= 0.0) ) stop(paste("Simplex",j,"has vertices in different octants"))
-  }
-}
+temp <- SubdivideSphereTriByOctant( S, eps=1.0e-14 )
+S <- temp$S
+nS <- dim(S)[3]
 
 # define the transformed function which evaluates the original function f(x) at a 
 # a single point in R^n, returning a single number
@@ -515,7 +570,7 @@ transformedF <- function( x ) {
   y <- f( const*x, ... ) * const^length(x)
   return(y) }
 
-# convert all simplices to lie on the l_1 ball: sum(abs(S[,i,j]))=1.  THis is 
+# convert all simplices to lie on the l_1 ball: sum(abs(S[,i,j]))=1.  This is 
 # assumed by the change of variables formula in transformedF( ) above.
 newS <- array( 0.0, dim=dim(S) )
 for (j in 1:nS) {
@@ -557,10 +612,15 @@ if (any(abs(sqrt(a)-1) > eps) ) {stop("Some columns of S are not unit vectors") 
 }
 ##############################################################
 Octants <- function( n, positive.only=FALSE ) {
-# return the octants in n-dimensions
+# return the V representation of the octants in n-dimensions
 
-a <- mvmesh::UnitSphere( n=n, k=0, positive.only=positive.only)
-return( aperm( a$S, c(2,1,3) ) ) }
+if (n > 1) {
+  a <- mvmesh::UnitSphere(n = n, k = 0, positive.only = positive.only)
+  return( aperm( a$S, c(2, 1, 3) ) )
+} else { 
+  return( array(c(1,-1), dim=c(1,1,2) ) )
+}
+}
 #######################################################################
 # adaptive numerical integration on spherical triangles in 3d, based on the
 # paper by N. Boal and F-J. Sayas at: 
@@ -807,31 +867,31 @@ for (i in 1:(n-1)) {
 }
 return( partition ) }
 ########################################################################
-adaptIntegrateCheck <- function(  n, lowerLimit, upperLimit, R, xstar, width  ) {
+adaptIntegrateSphereCheck <- function(  n, lowerLimit, upperLimit, R, xstar, width  ) {
 # check input arguments to adaptIntegrate*( ) functions.
 
 n <- as.integer(n)
-if (n < 2) stop("Error in adaptIntegrateCheck: dimension n < 2")
+if (n < 2) stop("dimension n < 2")
 m <- ncol(xstar)
-if (n != nrow(xstar) ) stop("Error in adaptIntegrateCheck: n is not equal nrow(xstar)")
+if (n != nrow(xstar) ) stop("n is not equal nrow(xstar)")
 if( length(lowerLimit) != (n-1))
-  stop(paste("Error in adaptIntegrateCheck: length(lowerLimit) should be ",n-1) )
+  stop(paste("length(lowerLimit) should be ",n-1) )
 if( length(lowerLimit) != length(upperLimit) )
-  stop("Error in adaptIntegrateCheck: length(lowerLimit != length(upperLimit)")
-if (any(lowerLimit < 0)) stop("Error in adaptIntegrateCheck: lowerLimit has negative values")
-if (any(lowerLimit > upperLimit)) stop("Error in adaptIntegrateCheck: some lowerLimit > upperLimit")
+  stop("length(lowerLimit != length(upperLimit)")
+if (any(lowerLimit < 0)) stop("lowerLimit has negative values")
+if (any(lowerLimit > upperLimit)) stop("some lowerLimit > upperLimit")
 maxLimit <- c(rep(pi,n-2),2*pi)
-if (any(upperLimit > maxLimit)) stop("Error in adaptIntegrateCheck: some upperLimit too large")
+if (any(upperLimit > maxLimit)) stop("some upperLimit too large")
 
 if (length(width) == 1L) { width <- rep(width,m) }
-if (length(width) != m ) stop("Error in adaptIntegrateCheck: length(width) != m")
+if (length(width) != m ) stop("length(width) != m")
 if (any(width > pi/2)) {
-   warning("adaptIntegrateCheck: some width > pi/2; truncated to pi/2")
+   warning("some width > pi/2; truncated to pi/2")
    j <- which(width > pi/2)
    width[j] <- pi/2
 }
-if (length(R) != 2) stop("adaptIntegrateCheck: length(R) must be 2")
-if (R[1] < 0.0) stop("adaptIntegrateCheck: R[1] must be nonnegative")
-if (R[1] >= R[2]) stop("adaptIntegrateCheck: R[2] must be bigger than R[1]")
+if (length(R) != 2) stop("length(R) must be 2")
+if (R[1] < 0.0) stop("R[1] must be nonnegative")
+if (R[1] >= R[2]) stop("R[2] must be bigger than R[1]")
 
 return(list(m=m,width=width) )}

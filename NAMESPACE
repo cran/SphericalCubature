@@ -1,5 +1,6 @@
 exportPattern("^[[:alpha:]]+")
 importFrom(cubature,adaptIntegrate)
 importFrom(SimplicialCubature,adaptIntegrateSimplex,SimplexSurfaceArea)
-importFrom(mvmesh,UnitSphere)
+importFrom(mvmesh,UnitSphere,V2Hrep,IntersectMultipleSimplicesH)
 importFrom(stats,integrate)
+importFrom(abind,abind)
