@@ -3,7 +3,7 @@
 # different dimensions
 f <- function( s ) { return( s[1]^2 ) }
 for (n in 2:8) {
-  b <- adaptIntegrateSphereTri( f, Octants(n,positive.only=TRUE) )
+  b <- adaptIntegrateSphereTri( f, Orthants(n,positive.only=TRUE) )
   cat( n, b$integral, sphereArea(n)/(n*2^n),"  ratio=",
     b$integral/( sphereArea(n)/(n*2^n)),"\n")
 }
@@ -17,10 +17,10 @@ for (n in 2:4) {
   p <- list(coef=1.0,k=matrix( rep(0L,n), nrow=1,ncol=n))
   cat("  ",integrateSpherePolynomial( p ))
   cat("  ",adaptIntegrateSpherePolar( f1, n )$integral)
-  a <- adaptIntegrateSphereTri( f1, Octants(n), maxEvals=1000000 )
+  a <- adaptIntegrateSphereTri( f1, Orthants(n), maxEvals=1000000 )
   cat("  ",a$integral)
   if(n==3) {
-    b <- adaptIntegrateSphereTri3d( f1, Octants(n) )
+    b <- adaptIntegrateSphereTri3d( f1, Orthants(n) )
     cat("  ",b$integral)
   }
   cat('\n')
@@ -39,7 +39,7 @@ for (n in 2:3) {
 # test of polynomial integration f(s)=s[1]^2
 f5 <- function( s ) { return( s[1]^2 ) }
 n <- 3
-S <- Octants( n, positive.only=TRUE )
+S <- Orthants( n, positive.only=TRUE )
 a <- adaptIntegrateSphereTri( f5, S )
 sphereArea(n)/(2^n*n) - a$integral  # error=exact-cubature approximation
 
@@ -51,14 +51,14 @@ a <- adaptIntegrateSphereTri( f5, S, maxEvals=200000, tol=1.0e-12 ) # increase a
 a$message
 sphereArea(n)/(2^n*n) - a$integral  # still too many evals, but better accuracy
 
-# integrate over a subdivision of the positve octant; note that this improves accuracy 
+# integrate over a subdivision of the positve orthant; note that this improves accuracy 
 #       and decreases the number of function evaluations
 S <- aperm( UnitSphere(n,k=2,positive.only=TRUE)$S, c(2,1,3) )
 a <- adaptIntegrateSphereTri( f5, S) # increase accuracty
 sphereArea(n)/(2^n*n) - a$integral  # error=exact-cubature approximation
 
 
-# check that simplices crossing octants gives correct answer
+# check that simplices crossing orthants gives correct answer
 b <- sqrt(2)/2
 badS <- matrix( c(b,b,  -b, b), nrow=2, ncol=2) # 2d example
 adaptIntegrateSphereTri( f1, badS ) 

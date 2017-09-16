@@ -484,51 +484,60 @@ ballVolume <- function( n, R=1.0 ) {
 volume <- R^n * pi^(n/2)/gamma((n/2.0)+1.0)
 return(volume)}
 #################################################################################
-SubdivideSphereTriByOctant <- function( S, eps=1.0e-14 ) {
-# Ensure that each spherical triangle is contained in a single octant.
-# The approach is to construct the cones using the origin and each spherical triangle, 
+SubdivideSphereTriByOrthant <- function( S, eps=1.0e-14 ) {
+# Ensure that each spherical triangle is contained in a single orthant.
+# The approach is to construct cones using the origin and each spherical triangle, 
 # giving n dim. simplices (whereas the orginal S is a list of (n-1) dim. simplices).  
-# Those cones are then intersected with the octants, and finally the vertex at 
-# the origin is removed and all other vertices a normalized to be on the unit sphere.
+# Those cones are then intersected with the orthants, and finally the vertex at 
+# the origin is removed and all other vertices are normalized to be on the unit sphere.
 
 # check input
 CheckUnitVectors( S )
 n <- dim(S)[1] # dimension of the vectors
 nS <- dim(S)[3] # number of simplices
 
-# convert from column vectors to row vectors & get H representation
+# convert from column vectors to row vectors & get H representations of both
+#  (a) the cones through the simplices S    and    (b) the 2^n orthants
+# note that both are n-dim solids, not (n-1)-dim surfaces
 HS <- mvmesh::HrepCones( aperm( S, perm=c(2,1,3) ) )
-HOctants <- mvmesh::V2Hrep( mvmesh::UnitBall(n,k=0,p=1)$S )
+HOrthants <- mvmesh::V2Hrep( mvmesh::UnitBall(n,k=0,p=1)$S )
 
-# intersect spherical triangles with octants
-newMesh <- mvmesh::IntersectMultipleSimplicesH( HS, HOctants )
+# intersect spherical triangles with orthants
+newMesh <- mvmesh::IntersectMultipleSimplicesH( HS, HOrthants )
 
-# convert non-zero vertices to to unit vectors
-n.newS <- dim(newMesh$S)[3]
-newS <- array( 0.0, dim=c(n,n,n.newS) )
+# convert non-zero vertices to unit vectors
+n.newS <- dim( newMesh$S )[3]
+newS <- array( 0.0, dim=c( n, n, n.newS ) )
+count <- 0L
 for (i in 1:n.newS) {
   temp <- t( newMesh$S[,,i] )
   r <- sqrt( colSums( temp^2 ) )
   reject <- which(r <= eps )
-  if (length(reject) != 1) stop( paste("simplex=",i,"  length(reject)=",length(reject),"   reject=",reject) )
-  k <- 0L
-  for (j in 1:(n+1)) {
-    if (j != reject) {
-      k <- k + 1
-      newS[ ,k,i] <- temp[,j]/r[j]
+  if (length(reject) == 1) {
+    count <- count + 1
+    k <- 0L
+    for (j in 1:(n+1)) {
+      if (j != reject) {
+        k <- k + 1
+        newS[ ,k,count] <- temp[,j]/r[j]
+      }
     }
+  } else {
+    warning( paste("Ignoring simplex=",i,"   reject=",reject, "  volume=",SimplexVolume(temp) )  )# happens occasionally with tiny simplices
   }
 }
 
+# remove empty simplices
+newS <- newS[,,1:count,drop=FALSE]
+
 # clean up: replace small values with 0.  This is apparently caused by
-# converting between V and H representations and intersecting simplices,
+# converting between V and H representations when intersecting simplices
 # and tessellating the resulting subsimplices
 trim.count <- 0L
-for (i in 1:n.newS) {
+for (i in 1:dim(newS)[3]) {
   for (j in 1:n) {
     for (k in 1:n) {
       if( (abs(newS[j,k,i]) > 0) & (abs(newS[j,k,i]) < eps)) { 
-        #cat("trimming: ",i,j,k,newS[j,k,i],"\n"); 
         newS[j,k,i] <- 0 
         trim.count <- trim.count + 1
       }
@@ -539,7 +548,7 @@ for (i in 1:n.newS) {
 dimnames(newS) <- NULL # clean up junk dimnames
 
 return( list( S=newS, original.simplex=newMesh$index1, 
-              octant=newMesh$index2, trim.count=trim.count  ) ) }
+              orthant=newMesh$index2, trim.count=trim.count  ) ) }
 ##############################################################
 adaptIntegrateSphereTri <- function( f, S, fDim=1L, maxEvals=20000L, absError=0.0, 
     tol=1.0e-5, integRule=3L, partitionInfo=FALSE, ...  ) {
@@ -559,13 +568,13 @@ n <- tmp[1]
 m <- tmp[2]-1
 if( m != n-1 ) stop("S must be (n-1) dimensional simplex/simplices in n dimensional space")
 
-temp <- SubdivideSphereTriByOctant( S, eps=1.0e-14 )
+temp <- SubdivideSphereTriByOrthant( S, eps=1.0e-14 )
 S <- temp$S
 nS <- dim(S)[3]
 
 # define the transformed function which evaluates the original function f(x) at a 
 # a single point in R^n, returning a single number
-transformedF <- function( x ) { 
+transformedF <- function( x, ... ) { 
   const <- 1.0/sqrt( sum(x^2) )
   y <- f( const*x, ... ) * const^length(x)
   return(y) }
@@ -611,8 +620,8 @@ a <- colSums( S^2 )
 if (any(abs(sqrt(a)-1) > eps) ) {stop("Some columns of S are not unit vectors") }
 }
 ##############################################################
-Octants <- function( n, positive.only=FALSE ) {
-# return the V representation of the octants in n-dimensions
+Orthants <- function( n, positive.only=FALSE ) {
+# return the V representation of the orthants in n-dimensions
 
 if (n > 1) {
   a <- mvmesh::UnitSphere(n = n, k = 0, positive.only = positive.only)

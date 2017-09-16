@@ -2,8 +2,8 @@ Package: SphericalCubature
 Type: Package
 Title: Numerical Integration over Spheres and Balls in n-Dimensions;
         Multivariate Polar Coordinates
-Version: 1.3
-Date: 2016-10-20
+Version: 1.4
+Date: 2017-09-16
 Author: John P. Nolan, American University
 Maintainer: John P. Nolan <jpnolan@american.edu>
 Depends: R (>= 3.0), cubature, SimplicialCubature, mvmesh, abind
@@ -12,6 +12,6 @@ Description: Provides several methods to integrate functions over the unit
  multivariate polar/spherical coordinates are also provided.
 License: GPL (>= 2)
 NeedsCompilation: no
-Packaged: 2016-10-21 01:59:29 UTC; John
+Packaged: 2017-09-16 16:32:39 UTC; John
 Repository: CRAN
-Date/Publication: 2016-10-21 10:32:34
+Date/Publication: 2017-09-16 19:15:42 UTC

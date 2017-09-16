@@ -22,9 +22,9 @@ adaptIntegrateSphereTriSubdivideK( K )
 \arguments{
   \item{f}{function f defined on the sphere}
   \item{S}{array of hyperspherical triangles, dim(S)=c(n,n,nS).  Columns of S should be points on the unit sphere: sum(S[,i,j]^2)=1. Execution will be faster if every simplex S[,,j] is 
-  contained within any single octant.  This will happend automatically if function \code{Octants}  is 
-  used to generate octants, or if S is a tessellation coming from function \code{UnitSphere} in package \code{mvmesh}. If one or more simplices
-  interect multiple octants, the simplices will automatically be subdivided so that each subsimplex is in a single octant.}
+  contained within any single orthant.  This will happend automatically if function \code{Orthants}  is 
+  used to generate orthants, or if S is a tessellation coming from function \code{UnitSphere} in package \code{mvmesh}. If one or more simplices
+  interect multiple orthants, the simplices will automatically be subdivided so that each subsimplex is in a single orthant.}
   \item{fDim}{integer dimension of the integrand function}
   \item{maxEvals}{maximum number of evaluations allowed}
   \item{absError}{desired absolute error}
@@ -57,7 +57,7 @@ in a hemisphere. The algorithm estimates the integral over each triangle, then e
 and subdivides triangles with large errors.  This is repeated until either the desired accuracy is achieved, 
 or there are too many subdivisions.  This function is more general than \code{adaptIntegrateSphereTri3d} in two 
 ways: (1) it works in dimension n >= 2, and (2) it allows vector integrands f.  It also is generaly faster
-than \code{adaptIntegrateSphereTri}. Use the function \code{Octants} to get a rough triangulation of
+than \code{adaptIntegrateSphereTri}. Use the function \code{Orthants} to get a rough triangulation of
 the sphere; see the examples below.  For finer resolution triangulation can be obtained from 
 \code{UnitSphere} in \R package \code{mvmesh}.    
 For description of \code{adaptIntegrateSphereTri3d} see www.unizar.es/galdeano/actas_pau/PDFVIII/pp61-69.pdf. 
@@ -88,14 +88,14 @@ f <- function( s ) { return( s[1]^2 ) }
 n <- 3
 
 # integrate over whole sphere
-S <- Octants( n )
+S <- Orthants( n )
 a <- adaptIntegrateSphereTri( f, S )
 b <- adaptIntegrateSphereTri3d( f, S )
 # exact answer, adaptIntegrateSphereTri approximation, adaptIntegrateSphereTri3d approximation
 sphereArea(n)/n; a$integral; b$integral
 
-# integrate over first octant only
-S <- Octants( n, positive.only=TRUE ) 
+# integrate over first orthant only
+S <- Orthants( n, positive.only=TRUE ) 
 a <- adaptIntegrateSphereTri( f, S )
 b <- adaptIntegrateSphereTri3d( f, S )
 # exact answer, adaptIntegrateSphereTri approximation, adaptIntegrateSphereTri3d approximation
