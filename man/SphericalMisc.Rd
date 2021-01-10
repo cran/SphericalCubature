@@ -7,6 +7,7 @@
 \alias{CheckUnitVectors}
 \alias{Orthants}
 \alias{SubdivideSphereTriByOrthant}
+\alias{nextBinary}
 %- Also NEED an '\alias' for EACH other topic documented here.
 \title{Miscellaneous internal functions used by SphericalCubature package. 
 }
@@ -18,7 +19,8 @@ adaptIntegrateCheck is used by the adaptive integration functions
 to check input parameters,
 partitionRegion is used by the 'split' versions of the the adaptive
 integration functions,  nextGraySubset is used by IntegrateSphereStroud11,
-nextMultiIndex is used by adaptive integration functions.
+nextMultiIndex is used by adaptive integration functions, nextBinary
+is used by Orthants.
 }
 \usage{
 adaptIntegrateSphereCheck( n, lowerLimit, upperLimit, R, xstar, width )
@@ -28,6 +30,7 @@ nextMultiIndex( j, size )
 CheckUnitVectors( S, eps=1.0e-14 )
 Orthants( n, positive.only=FALSE )
 SubdivideSphereTriByOrthant( S, eps=1.0e-14 )
+nextBinary( b )
 }
 \arguments{
   \item{n}{dimension of the space}
@@ -42,9 +45,10 @@ SubdivideSphereTriByOrthant( S, eps=1.0e-14 )
   \item{S}{a matrix or array specifying simplices}
   \item{eps}{tolerance used in test for unit vectors}
   \item{positive.only}{logical; if TRUE, only the first orthant is returned, if FALSE, all 2^n orthants are returned }
+  \item{b}{a vector of integers, representing a number in base 2}
 }
 
 \details{
-\code{Orthant} returns an array of simplices in the V representation; each one gives the points on the axes that are on the boundary of one orthant.
-\code{CheckSphereTri} performs validity checks on the simplices in S.
+\code{Orthant()} returns an array of simplices in the V representation; each one gives the points on the axes that are on the boundary of one orthant.
+\code{CheckSphereTri()} performs validity checks on the simplices in S.
 }

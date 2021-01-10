@@ -34,10 +34,10 @@ integrateSpherePolynomial is called with valueOnly=FALSE, a list with two fields
 \itemize{  \item{integral, a double containing the value of the integral}
    \item{term, a vector of length m of values used in function IntegratePolynomialBall( )}}
 }
-\value{integrateSpherePolynomial( ) normally just returns a value of the integral, but if 
+\value{\code{integrateSpherePolynomial()}  normally just returns a value of the integral, but if 
  valueOnly=FALSE, it will return a list containing the value and intermediate terms.  These
  intermediate terms correspond to the integral of each monomial term in the polynomial; they
- are used by integrateBallPolynomial( ).  
+ are used by \code{integrateBallPolynomial()}.  
  
  integrateBallPolynomial( ) returns just the value of the integral.
 

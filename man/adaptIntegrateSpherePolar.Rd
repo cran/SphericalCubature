@@ -10,11 +10,11 @@ Approximate the integral over the sphere or ball in n-dimensions using polar
 coordinates.  Can also integrate over sectors of the sphere/ball, see details.  These functions
 will be slow, but may be necessary to get accurate answers if the integrand
 function f(x) is not smooth.  If the integrand changes rapidly
-in certain regions, the basic routines \code{adaptIntegrateSpherePolar} and 
-code{adaptIntegrateBallPolar} will likely miss these abrupt changes and give
+in certain regions, the basic routines \code{adaptIntegrateSpherePolar()} and 
+code{adaptIntegrateBallPolar()} will likely miss these abrupt changes and give
 inaccurate results.  For cases where the location of the rapid changes are known,
-the functions \code{adaptIntegrateSpherePolarSplit} and
-code{adaptIntegrateBallPolarSplit} allow you to split the region of integration
+the functions \code{adaptIntegrateSpherePolarSplit()} and
+\code{adaptIntegrateBallPolarSplit()} allow you to split the region of integration
 and capture those changes.
 }
 \usage{
@@ -54,33 +54,32 @@ adaptIntegrateBallPolarSplit(f, n, xstar, width = 0, lowerLimit = rep(0, n - 1),
   If width[j] > 0, then angular region is split at an angle plus and minus width[j].
 }
 }
-\details{Approximate the integral of f(x) over (part of) the sphere or ball in n-space.
+\details{Approximate the integral of f(x) over all/part of the sphere or ball in n-space.
 The approach is simplistic: reparameterize the
-region in polar coordinates.  For the sphere, this makes the region of integration a hyper-rectangle
+region in polar coordinates.  For the sphere, this makes the region of integration a rectangle
 in dimension (n-1) in the angle space (here the radius is fixed: R=1).  For the ball, the polar representation in terms
-of angles and radius gives an region of integration that is an n dimensional hyper-rectangle.
+of angles and radius gives an region of integration that is an n dimensional rectangle.
+The \R package \code{cubature} is used to evaluate the transformed integral.  
 
 The region of integration can be a subset of the sphere/ball by specifying a
 patch/sector in polar coordinates.  
 To integrate over a subregion, bounds for the polar integration have be specified.  For example,
 in two dimensions, you can integrate over the top half of the circle by specifying lowerLimit=0.0
-and upperLimit=pi to \code{adaptIntegrateSpherePolar}.  Likewise for the ball, to integrate over the part of the annulus
+and upperLimit=pi to \code{adaptIntegrateSpherePolar()}.  Likewise for the ball, to integrate over the part of the annulus
  with inner radius .2 and outer radius .7 that is in the first quadrant, specify
 lowerLimit=0.0, upperLimit=pi/2, R=c(.2,.7).
 }
-\value{For \code{adaptIntegrateSpherePolar} and \code{adaptIntegrateBallPolar}, the function returns a
+\value{For \code{adaptIntegrateSpherePolar()} and \code{adaptIntegrateBallPolar()}, the function returns a
  list containing several fields.  There is always a field
    \item{integral}{Giving the approximate value of the integral.}
 The other fields depend on the dimension: when n=2, the other fields are
-what is returned by the function integrate( ) in base \R;
-when n > 2, the other fields are the fields returned by function \code{adaptIntegrate( )} in package cubature.
+what is returned by the function \code{integrate()} in base \R;
+when n > 2, the other fields are the fields returned by package \code{cubature}.
 
-For \code{adaptIntegrateSpherePolarSplit} and \code{adaptIntegrateBallPolarSplit}, a single value is returned.  (This is 
+For \code{adaptIntegrateSpherePolarSplit()} and \code{adaptIntegrateBallPolarSplit()}, a single value is returned.  (This is 
 because these functions make multiple calls to the adaptive integration routine and the 
 results of each call are not saved.
 }
-
-%% ~Make other sections like Warning with \section{Warning }{....} ~
 
 \seealso{
 \code{\link{polar2rect}}, \code{\link{rect2polar}}
@@ -104,12 +103,12 @@ f3 <- function( x ) {
   return(y)  }
 
 # no splitting: this straightforward attempt at integration misses
-# the spike and sees the integrand as =1 everywhere, so returns the arclengh 2*pi
+# the spike and sees the integrand as =1 everywhere, so returns 2*pi
 n <- 2
 adaptIntegrateSpherePolar( f3, n ) 
 
 # deliberate splitting at specified points, but still misses spike
-# default width=0 splits the region of integration from [0,2*pi] to [0,a] U [a,2*pi],
+# default width=0 splits the region of integration from [0,2*pi] to [0,a] union [a,2*pi],
 # where tan(a)=2/1.
 xstar <- matrix( c(1.0,2.0,-1.0,1.0), nrow=2 )
 adaptIntegrateSpherePolarSplit( f3, n, xstar=xstar )

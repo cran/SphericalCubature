@@ -161,7 +161,7 @@ adaptIntegrateSpherePolarSplit <- function( f, n, xstar, width=0,
 #     adaptive integration routine by splitting up the region of
 #     integration into pieces, with rectangles of side width[j] around
 #     each point xstar[,j].  (If width[j]=0, then just split at each
-#     point xstar[ ,j].
+#     point xstar[ ,j].)
 # Since this function makes repetitive calls to adaptIntegrateSpherePolar,
 #     and that function prints a warning when something isn't right,
 #     this function only returns a single number, the estimated
@@ -184,17 +184,45 @@ size <- partition$count - 1
 j <- rep(1L,n-1)
 low <- rep(0.0,n-1)
 up <- rep(0.0,n-1)
+
+# loop through subdivision of the space and accumulate results
+if (n==2) {
+  # line integral computed using integrate() in base R
+  cum <- list( integral=0.0, subdivision=NA, message="OK" )
+} else {
+  # adaptIntegrateSimplex() used
+  cum <- list( integral=0.0, error=0.0, functionEvaluations=0L, returnCode=0L)
+}
 repeat {
   for (i in 1:(n-1)) {
     low[i] <- partition$phi[[i]][j[i]]
     up[i] <- partition$phi[[i]][j[i]+1]
   }
-  b <- adaptIntegrateSpherePolar( f, n, low,up, tol, ... )
-  integral <- integral + b$integral
+  cur <- adaptIntegrateSpherePolar( f, n, low,up, tol, ... )
+  if(n==2) {
+    if(cur$message=="OK")  {
+       cum$integral <- cum$integral + cur$integral
+       cum$abs.error <- cum$abs.error + cur$abs.error
+    } else {
+       cum$message <- cur$message
+       break
+    }
+  } else {
+    # n < 2
+    if(cur$returnCode==0L) {
+      cum$integral <- cum$integral + cur$integral
+      cum$error <- cum$error + cur$error
+      cum$functionEvaluations <- cum$functionEvaluations + cur$functionEvaluations
+    } else {
+      cum$returnCode <- cur$returnCode
+      break
+    } 
+  }
+
   j <- nextMultiIndex(j, size)
   if (j[1] < 0 ) { break }
 }
-return(integral) }
+return( cum ) }
 ########################################################################
 adaptIntegrateBallPolar <- function( f, n, lowerLimit=rep(0.0,n-1),
                     upperLimit=c(rep(pi,n-2),2*pi), R=c(0.0,1.0), tol=1e-05, ... ) {
@@ -290,23 +318,18 @@ polar2rect <- function( r, phi ) {
 #     and the result is a matrix x[1:n,1:m], with columns of x being the x
 #     coordinates of points (r[j],phi[,j]).
 # The result is always a matrix x of size (n x m).
-#
+
 m <- length(r)
 if (!is.matrix(phi)) { phi <- as.matrix(phi,ncol=1) }
 stopifnot( m == ncol(phi))
 n <- nrow(phi) + 1
-x <- matrix(0.0,nrow=n,ncol=m)
+x <- matrix(0, nrow = n, ncol = m)
 for (j in 1:m) {
-  col.cos <- cos(phi[,j])
-  col.sin <- sin(phi[,j])
-  s <- c( col.cos[1], rep(col.sin[1],n-1) )
-  if (n > 2) {
-    for (k in 2:(n-1)) {
-      s[k] <- s[k]*col.cos[k]
-      s[(k+1):n] <- s[(k+1):n]*col.sin[k]
-    }
-  }
-  x[,j] <- r[j]*s
+    c.term <- cos(phi[, j])
+    s.term <- sin(phi[, j])
+    y <- c( 1, cumprod(s.term) )
+    z <- c( c.term, 1 )
+    x[,j] <- r[j] * y * z   
 }
 return(x) }
 ########################################################################
@@ -316,26 +339,37 @@ rect2polar <- function( x ) {
 #     polar coordinates (r,phi[1:(n-1)])
 # If x[1:n,1:m] is a matrix, convert each column x[ ,i] to polar coordinates
 #   given by r[i] and phi[,i]
+# the result is a list, with fields 
+#  r=radii, a vector of length m
+#  phi angles, a matrix of size (n-1) by m
 
 if(!is.matrix(x)) { x <- as.matrix(x,ncol=1) }
 n <- nrow(x)
 m <- ncol(x)
-r <- rep(0.0,m)
-phi <- matrix(0.0,nrow=n-1,ncol=m)
+r <- rep(0, m)
+phi <- matrix(0, nrow = n - 1, ncol = m)
 for (j in 1:m) {
-  rsq <- x[,j]^2
-  cum.rsq <- cumsum(rev(rsq))
-  r[j] <- sqrt( cum.rsq[n] )
-  if (r[j] > 0.0) {
-    if (n>2) {
-      for (k in 1:(n-2)) {
-        phi[k,j] <- atan2( sqrt(cum.rsq[n-k]), x[k,j] )
-      }
+    y <- sqrt(cumsum(rev(x[,j]^2)))
+    r[j] <- y[n]
+    if (r[j] > 0) {
+        if (n > 2) {
+            for (k in 1:(n - 2)) {
+              if( y[n-k+1] > 0 )
+                phi[k, j] <- acos( x[k,j] / y[n-k+1] )
+              else {
+                phi[k,j] <- ifelse( x[k,j] > 0, 0.0, pi )   
+              }
+            }
+        }
+        if( y[2] > 0 ) {
+          phi[n - 1, j] <- acos( x[n-1,j] / y[2] )
+          if(x[n,j] < 0) { phi[n-1,j] <- 2*pi - phi[n-1,j] }
+        } else {
+          phi[n-1,j] <- ifelse( x[n,j] > 0, 0.0, pi )
+        }
     }
-    phi[n-1,j] <- 2*atan2( x[n,j], x[n-1,j]+sqrt(cum.rsq[2] ) )
-  }
 }
-return(list(r=r,phi=phi))}
+return(list(r = r, phi = phi)) }
 ########################################################################
 ########################################################################
 #  Stroud integration and related functions, adapted from fortran and
@@ -550,24 +584,26 @@ dimnames(newS) <- NULL # clean up junk dimnames
 return( list( S=newS, original.simplex=newMesh$index1, 
               orthant=newMesh$index2, trim.count=trim.count  ) ) }
 ##############################################################
-adaptIntegrateSphereTri <- function( f, S, fDim=1L, maxEvals=20000L, absError=0.0, 
-    tol=1.0e-5, integRule=3L, partitionInfo=FALSE, ...  ) {
-# Adaptively integrate f(x) over the unit sphere using a hyperspherical triangle 
+adaptIntegrateSphereTri <- function( f, n, S=Orthants(n), fDim=1L, maxEvals=20000L, absError=0.0, 
+            tol=1.0e-5, integRule=3L, partitionInfo=FALSE, ...  ) {
+# Adaptively integrate f(x) over the unit sphere in R^n using an
 # approximation to the sphere give by the hyperspherical triangles in S.
-# It is assumed that the points in S are unit vectors (up to double precision accuracy).
+# It is required that the points in S are unit vectors (up to double precision accuracy).
 # On entry, dim(S)=c(n,n,nS), with S[ ,i,j] is the i-th vertex of hypertriangle j
 # Other aguments are the same as in adaptIntegrateSimplex in package SimplicialCubature.
 # ... are optional arguments are passed to function f when it is evaluated
 
 # error checking
 if( !is.function(f) ) stop("argument f must be a function")
+if ( length(n) > 1 ) stop("Second argument to adaptIntegrateSphereTri should be n=the dimension of the space")
 if( is.matrix(S) )  { S <- array( S, dim=c(nrow(S),ncol(S),1)) }
 if( !is.array(S) | (length(dim(S)) != 3) ) stop("S must be a single simplex or an array of simplices")
 tmp <- dim(S)
-n <- tmp[1]
+if( n != tmp[1]) stop("S array is the wrong size")
 m <- tmp[2]-1
 if( m != n-1 ) stop("S must be (n-1) dimensional simplex/simplices in n dimensional space")
 
+# guarantee that each triangle is inside some orthant
 temp <- SubdivideSphereTriByOrthant( S, eps=1.0e-14 )
 S <- temp$S
 nS <- dim(S)[3]
@@ -595,7 +631,7 @@ result <- SimplicialCubature::adaptIntegrateSimplex(transformedF, newS, fDim,
 # repackage result to give adjusted values
 result$integral <- result$integral/sqrt(n)
 
-if( (result$returnCode == 0) & partitionInfo) {
+if( partitionInfo ) {
   result$subsimplicesIntegral <- result$subsimplicesIntegral/sqrt(n)
   # normalize all points in the grid.
   for (i in 1:dim(result$subsimplices)[3]) {
@@ -619,16 +655,29 @@ stopifnot( is.matrix(S), is.numeric(S) )
 a <- colSums( S^2 ) 
 if (any(abs(sqrt(a)-1) > eps) ) {stop("Some columns of S are not unit vectors") }
 }
+########################################################################
+nextBinary <- function( b ){
+  # count in base 2, internal function used by Orthants
+  j <- 1; carry <- 1L
+  while (carry > 0){
+    carry <- b[j]
+    b[j] <- 1L-carry
+    if (j == length(b)) break
+    j <- j + 1
+  }
+  return(b) }
 ##############################################################
 Orthants <- function( n, positive.only=FALSE ) {
-# return the V representation of the orthants in n-dimensions
+  # return the V representation of the orthants in n-dimensions
 
-if (n > 1) {
-  a <- mvmesh::UnitSphere(n = n, k = 0, positive.only = positive.only)
-  return( aperm( a$S, c(2, 1, 3) ) )
-} else { 
-  return( array(c(1,-1), dim=c(1,1,2) ) )
-}
+  nV <- ifelse( positive.only, 1, 2^n )
+  V <- array( 0.0, dim=c(n,n,nV)  )
+  b <- rep( 0L, n )
+  for (j in 1:nV) {
+    for (i in 1:n) { V[i,i,j] <- 1-2*b[i] }
+    b <- nextBinary( b )
+  }
+  return(V) 
 }
 #######################################################################
 # adaptive numerical integration on spherical triangles in 3d, based on the
@@ -904,3 +953,98 @@ if (R[1] < 0.0) stop("R[1] must be nonnegative")
 if (R[1] >= R[2]) stop("R[2] must be bigger than R[1]")
 
 return(list(m=m,width=width) )}
+########################################################################
+adaptIntegrateBallTri <- function( f, n, S=Orthants(n), fDim=1,
+        maxEvals=20000L, absError=0.0, tol=1e-05, integRule=3L, 
+        partitionInfo=FALSE,... ) {
+# Integrate f(x[1],...,x[n] ) over the unit ball (or a portion 
+#    specified by the spherical trianges specified in S).  S should be an array of that
+#    dscribes sphereical triangles, as in function adaptIntegrateSphereTri. 
+#    In the simplest case, S is an (n x n) matrix specifying a single spherical triangle 
+#    Together with the origin, this specifies a cone in R^n.
+#    More generally, S can be an array with dim(S)=c(n,n,nS), 
+#    with each matrix S[,,j] specifying a cone.  The default is to 
+#    integrate over the entire unit ball. 
+#
+#    If the integrand f is not well-behaved, one can try specifying an f
+#    dependent partition of the ball to force this routine to focus on 
+#    certain areas.
+#    
+# The result is a list with multiple fields.  In all cases, the value of
+# the integral is stored in the field $integral.  Other fields are specific to
+# the dimension: if n=1, the list is what is returned by integrate( );
+# if n > 2, the list is what is returned by adaptIntegrate( ) from
+# the package cubature.
+#
+# Other aguments are the same as in adaptIntegrateSimplex in package SimplicialCubature.
+# ... are optional arguments are passed to function f when it is evaluated
+
+# error checking
+if( !is.function(f) ) stop("argument f must be a function")
+if( (length(n) > 1) | (n < 1 ) | (as.integer(n) != n ) ) stop("n must be an positive integer")
+if( is.matrix(S) )  { S <- array( S, dim=c(nrow(S),ncol(S),1)) } # convert to array
+if( !is.array(S) | (length(dim(S)) != 3) ) stop("S must be a single simplex or an array of simplices")
+tmp <- dim(S)
+if( tmp[1] != tmp[2] ) stop("S array is not the right dimensions")
+if(n != tmp[2]) stop("dimension n of the base space is not equal to the dimension of the spherical triangles given in S")
+
+# guarantee that each cone is inside some orthant
+temp <- SubdivideSphereTriByOrthant(S, eps = 1e-14)
+S <- temp$S
+nS <- dim(S)[3]
+
+# define the transformed function which evaluates the original function f(x) at a 
+# a single point in R^n, returning a single number
+transformedF <- function( x ) { 
+  const <- sum(abs(x))
+  if( const == 0.0 ) stop("Error: x==0 in function transformedF")
+  const <- const/sqrt(sum(x^2))
+  y <- f( const*x, ... ) * const^length(x)
+  return(y) }
+
+# convert all simplices to lie on the l_1 ball: sum(abs(S[,i,j]))=1.  This is 
+# assumed by the change of variables formula in transformedF( ) above.
+newS <- array( 0.0, dim=c(n,n+1,nS) )
+for (j in 1:nS) {
+  for (i in 1:n) {
+    newS[,i,j] <- S[,i,j]/ sum(abs(S[,i,j]))
+  }
+}
+
+# integrate over new simplices
+result <- SimplicialCubature::adaptIntegrateSimplex( f=transformedF, S=newS, fDim=fDim, 
+  maxEvals=maxEvals, absError=absError, tol=tol, integRule=integRule, partitionInfo=partitionInfo )
+  
+# repackage result to give adjusted values
+if( partitionInfo) {
+  # normalize all points in the grid.
+  for (i in 1:dim(result$subsimplices)[3]) {
+    for (j in 1:(n+1)) {
+      len1 <- sum( abs(result$subsimplices[,j,i] ) )
+      len2 <- sqrt( sum( result$subsimplices[,j,i]^2 ) )
+      if( len1 > 0 ) { result$subsimplices[,j,i] <- result$subsimplices[,j,i]*len1/len2 }
+    }
+    result$subsimplicesVolume[i] <- SimplexVolume( result$subsimplices[,,i] )    
+  }
+}
+return(result) }
+############################################################################
+adaptIntegrateBallRadial <- function( g, n, fDim=1,
+        maxEvals=20000L, absError=0.0, tol=1e-05, integRule=3L, 
+        partitionInfo=FALSE, ... ) {
+# Integrate a function f(x[1],...,x[n]) over the unit ball B in R^n, 
+# where the fumction is radial:  f(x[1],...,x[n])=g(|x|).
+# mehtod is to transform the integral to polar coordinates, and then
+# use the radial symmetry to get a one dimensional integral:
+#   integral over B of f(x) dx (an n-dimensional integral)
+#             = K integral from 0 to 1 of r^(n-1) * g(r) dr (a one dim. integral.
+# The one dimensional integral is evaluated numerically using adaptive quadrature.
+
+radial.func <- function( r, ... ) { r^(n-1) * g( r, ... ) }
+
+intervals <- array( c(0.0,1.0), dim=c(1,2,1) )
+r <- SimplicialCubature::adaptIntegrateVectorFunc( intervals=intervals, fDim=fDim, f=radial.func, 
+  maxEvals=maxEvals, absError=absError, tol=tol, partitionInfo=partitionInfo, ... )
+r$integral <- 2*pi^(n/2)/gamma(n/2) * r$integral
+return( r ) }
+############################################################################

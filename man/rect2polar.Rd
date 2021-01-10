@@ -10,11 +10,10 @@ in polar coordinates.
 polar2rect(r, phi)
 rect2polar(x)
 }
-%- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{r}{a vector of radii of length m.
 }
-  \item{phi}{a (n-1) x m matrix of angles.
+  \item{phi}{angles, a matrix of size (n-1) x m.
 }
   \item{x}{ (n x m) matrix, with column j being the point in n-dimensional space.
 }
@@ -23,22 +22,22 @@ rect2polar(x)
  rectangular x=(x[1],...,x[n])  corresponds to
    polar  (r,phi[1],...,phi[n-1]) by \cr
  x[1]  = r*cos(phi[1]) \cr
- x[2]  = r*sin(phi[1])*cos(phi[2]) \cr
- x[3]  = r*sin(phi[1])*sin(phi[2])*cos \cr
+ x[j]  = r*prod(sin(phi[1:(j-1)]))*cos(phi[j]), 2 <= j <= n-1 \cr
    ... \cr
- x[n-1]= r*sin(phi[1])*sin(phi[2])*...*sin(phi[n-2])*cos(phi[n-1]) \cr
  x[n]  = r*sin(phi[1])*sin(phi[2])*...*sin(phi[n-2])*sin(phi[n-1]) \cr
  
- Here phi[1],...,phi[n-2] in [0,pi), and phi[n-1] in [0,2*pi).
- For multivariate integration, the Jacobian of the above tranformation
-  is J(phi) = r^(n-1) * prod( sin(phi[1:(n-2)])^((n-2):1) );
-  note that phi[n-1] does not appear in the Jacobian.
+ This is the defintion used in Wikipedia under the topic 'n-sphere'.
+ There are variations of   this definition in use.
+ Here phi[1],...,phi[n-2] are in [0,pi), and phi[n-1] is in [0,2*pi).
+ For multivariate integration, the determinant of the Jacobian of the above tranformation
+  is J(r,phi) = r^(n-1) * prod( sin(phi[1:(n-2)])^((n-2):1) );
+  note that phi[n-1] does not appear in the Jacobian.  
 }
 \value{For polar2rect( ), an (n x m) matrix of rectangular coordinates.
 
  For rect2polar( ), a list with fields:
  \item{r}{a vector of length m containing the radii}
- \item{phi}{an (n x m) matrix of angles}
+ \item{phi}{angles, a matrix of size (n x m)}
 }
 
 
